@@ -173,22 +173,29 @@ print("Test predictions shape:", test_predictions)
 # CREATE SUBMISSION
 # ===============================
 
-submission_rows = []
+# Armar dataframe wide con las predicciones
+predictions_df = pd.DataFrame(
+    test_predictions,
+    columns=TARGET_COLS
+)
+predictions_df.insert(0, "image_path", unique_image_paths)
 
-# Obtener imágenes únicas (test_df está en formato largo)
-unique_image_paths = test_df["image_path"].unique()
+# Pasar de wide a long
+predictions_long_df = predictions_df.melt(
+    id_vars=["image_path"],
+    value_vars=TARGET_COLS,
+    var_name="target_name",
+    value_name="target"
+)
 
-for i, img_path in enumerate(unique_image_paths):
+# Merge con test_df para recuperar el sample_id original
+submission_df = pd.merge(
+    test_df[["sample_id", "image_path", "target_name"]],
+    predictions_long_df,
+    on=["image_path", "target_name"]
+)[["sample_id", "target"]].dropna()
 
-    for j, target in enumerate(TARGET_COLS):
+submission_df.to_csv("submission2.csv", index=False)
 
-        submission_rows.append({
-            "sample_id": f"{img_path}_{target}",
-            "target": test_predictions[i, j]
-        })
-
-submission_df = pd.DataFrame(submission_rows)
-
-submission_df.to_csv("submission.csv", index=False)
-
-print("Submission file created: submission.csv")
+print("Submission file created: submission2.csv")
+print(submission_df.head())
