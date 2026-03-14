@@ -122,6 +122,9 @@ TARGET_COLS = train_wide_df.columns[1:]
 X_train = train_features
 y_train = train_wide_df[TARGET_COLS]
 
+print("X_train shape:", X_train.shape)
+print("y_train shape:\n", y_train)
+
 print("Training RandomForest...")
 
 model = RandomForestRegressor(
