@@ -113,75 +113,78 @@ train_features = np.array(train_features)
 print("Train feature matrix:", train_features)
 
 
-# # ===============================
-# # TRAIN MODEL
-# # ===============================
+# ===============================
+# TRAIN MODEL
+# ===============================
 
-# TARGET_COLS = train_wide_df.columns[1:]
+TARGET_COLS = train_wide_df.columns[1:]
 
-# X_train = train_features
-# y_train = train_wide_df[TARGET_COLS]
+X_train = train_features
+y_train = train_wide_df[TARGET_COLS]
 
-# print("Training RandomForest...")
+print("Training RandomForest...")
 
-# model = RandomForestRegressor(
-#     n_estimators=300,
-#     random_state=RANDOM_SEED,
-#     n_jobs=-1
-# )
+model = RandomForestRegressor(
+    n_estimators=300,
+    random_state=RANDOM_SEED,
+    n_jobs=-1
+)
 
-# model.fit(X_train, y_train)
+model.fit(X_train, y_train)
 
-# print("Training completed.")
-
-
-# # ===============================
-# # EXTRACT TEST FEATURES
-# # ===============================
-
-# test_features = []
-
-# print("Extracting TEST features...")
-
-# for img_path in tqdm(test_df["image_path"]):
-
-#     full_path = os.path.join(TEST_IMG_DIR, img_path)
-
-#     features = extract_features(full_path)
-
-#     test_features.append(features)
-
-# test_features = np.array(test_features)
-
-# print("Test feature matrix:", test_features.shape)
+print("Training completed.")
 
 
-# # ===============================
-# # PREDICT
-# # ===============================
+# =============================== TEST FEATURES AND PREDICTION ===============================
 
-# print("Predicting...")
+# ===============================
+# EXTRACT TEST FEATURES
+# ===============================
 
-# test_predictions = model.predict(test_features)
+test_features = []
+
+unique_image_paths = test_df["image_path"].unique()  # <-- también aquí
+
+print("Extracting TEST features...")
+
+for img_path in tqdm(unique_image_paths):
+
+    full_path = os.path.join(TEST_IMG_DIR, img_path)
+    features = extract_features(full_path)
+    test_features.append(features)
+
+test_features = np.array(test_features)
 
 
-# # ===============================
-# # CREATE SUBMISSION
-# # ===============================
+# ===============================
+# PREDICT
+# ===============================
 
-# submission_rows = []
+print("Predicting...")
 
-# for i, img_path in enumerate(test_df["image_path"]):
+test_predictions = model.predict(test_features)
+print("Test predictions shape:", test_predictions)
 
-#     for j, target in enumerate(TARGET_COLS):
+# ===============================
+# CREATE SUBMISSION
+# ===============================
 
-#         submission_rows.append({
-#             "sample_id": f"{img_path}_{target}",
-#             "target": test_predictions[i, j]
-#         })
+submission_rows = []
 
-# submission_df = pd.DataFrame(submission_rows)
+# Obtener imágenes únicas (test_df está en formato largo)
+unique_image_paths = test_df["image_path"].unique()
 
-# submission_df.to_csv("submission.csv", index=False)
+for i, img_path in enumerate(unique_image_paths):
 
-# print("Submission file created: submission.csv")
+    for j, target in enumerate(TARGET_COLS):
+
+        submission_rows.append({
+            "sample_id": f"{img_path}_{target}",
+            "target": test_predictions[i, j]
+        })
+
+submission_df = pd.DataFrame(submission_rows)
+
+submission_df.to_csv("submission.csv", index=False)
+
+print("Submission file created: submission.csv")
