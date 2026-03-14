@@ -127,7 +127,8 @@ print("Training RandomForest...")
 model = RandomForestRegressor(
     n_estimators=300,
     random_state=RANDOM_SEED,
-    n_jobs=-1
+    n_jobs=-1,
+    verbose=2
 )
 
 model.fit(X_train, y_train)
