@@ -1,5 +1,6 @@
 # For data manipulation
 import os
+import joblib
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
@@ -114,37 +115,6 @@ train_features = np.array(train_features)
 
 print("Train feature matrix:", train_features)
 
-# ===============================
-# FEATURE CORRELATION ANALYSIS
-# ===============================
-
-# Convertir features a DataFrame para poder usar corrwith
-feature_column_names = [f"feat_{i}" for i in range(train_features.shape[1])]
-train_data = pd.DataFrame(train_features, columns=feature_column_names)
-
-# Agregar la columna target (asegúrate que esté alineada por índice)
-train_data['Dry_Total_g'] = train_wide_df['Dry_Total_g'].values
-
-# Calcular correlaciones
-correlations = train_data[feature_column_names].corrwith(train_data['Dry_Total_g'])
-
-# Top 5 más positivas y más negativas
-top_pos = correlations.nlargest(5)
-top_neg = correlations.nsmallest(5)
-
-plt.figure(figsize=(10, 4))
-top_features = pd.concat([top_pos, top_neg])
-top_features.plot(kind='bar', color=['green']*5 + ['red']*5)
-plt.title('Feature Correlations with Dry_Total_g')
-plt.ylabel('Correlation Coefficient')
-plt.xlabel('Feature Index (VGG16)')
-plt.grid(axis='y')
-plt.tight_layout()
-plt.show()
-
-print("Estas son las neuronas de VGG16 más útiles para predecir Dry_Green_g.")
-
-
 
 # ===============================
 # TRAIN MODEL
@@ -232,3 +202,21 @@ submission_df.to_csv("submission2.csv", index=False)
 
 print("Submission file created: submission2.csv")
 print(submission_df.head())
+
+# ===============================
+# SAVE MODEL & ARTIFACTS
+# ===============================
+
+SAVE_DIR = os.path.join(BASE_PATH, 'saved_model')
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+# Guardar el RandomForest
+joblib.dump(model, os.path.join(SAVE_DIR, 'random_forest.pkl'))
+
+# Guardar los nombres de los targets (para reconstruir el submission)
+joblib.dump(list(TARGET_COLS), os.path.join(SAVE_DIR, 'target_cols.pkl'))
+
+# Guardar los features de train (opcional, para análisis futuros)
+np.save(os.path.join(SAVE_DIR, 'train_features.npy'), train_features)
+
+print(f"Modelo y artefactos guardados en: {SAVE_DIR}")

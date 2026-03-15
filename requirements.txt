@@ -7,3 +7,4 @@ tensorflow
 scikit-learn
 albumentations
 opencv-python
+joblib
