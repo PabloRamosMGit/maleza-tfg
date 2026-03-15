@@ -10,7 +10,7 @@ from tensorflow.keras.preprocessing import image
 # CONFIG
 # ===============================
 
-BASE_PATH = r'C:\Users\pablo\pablo-tfg-malezas\maleza-tfg\csiro-biomass'
+BASE_PATH = r'C:\Users\pablo\pablo-tfg-malezas\maleza-tfg'
 SAVE_DIR = os.path.join(BASE_PATH, 'saved_model')
 IMG_SIZE = 224
 
