@@ -10,8 +10,8 @@ from tensorflow.keras.preprocessing import image
 # CONFIG
 # ===============================
 
-BASE_PATH = r'C:\Users\pablo\pablo-tfg-malezas\maleza-tfg'
-SAVE_DIR = os.path.join(BASE_PATH, 'saved_model')
+BASE_PATH = r'C:\Users\pablo\maleza-tfg\csiro-biomass'
+SAVE_DIR = os.path.join(BASE_PATH, 'saved_model_vgg')
 IMG_SIZE = 224
 
 # ===============================
@@ -59,7 +59,7 @@ def predict_image(img_path):
 # ===============================
 
 # Cambia esto por la ruta de tu imagen nueva
-img_path = r'C:\Users\pablo\pablo-tfg-malezas\maleza-tfg\csiro-biomass\img_to_predict_test\biomass_image_train_0026.jpg'
+img_path = r'C:\Users\pablo\maleza-tfg\csiro-biomass\test\ID1001187975.jpg'
 
 resultado = predict_image(img_path)
 

@@ -10,7 +10,7 @@ from tensorflow.keras.applications.efficientnet import preprocess_input
 # CONFIG
 # ===============================
 
-BASE_PATH = r'C:\Users\pablo\pablo-tfg-malezas\maleza-tfg\csiro-biomass'
+BASE_PATH = r'C:\Users\pablo\maleza-tfg\csiro-biomass'
 SAVE_DIR  = os.path.join(BASE_PATH, 'saved_model_efficientnet_simplified_attempt')
 IMG_SIZE  = 300
 
@@ -81,7 +81,7 @@ def predict_image(img_path: str) -> dict:
 # EJEMPLO DE USO
 # ===============================
 
-img_path = r"C:\Users\pablo\pablo-tfg-malezas\maleza-tfg\csiro-biomass\train\ID95050718.jpg"
+img_path = r'C:\Users\pablo\maleza-tfg\csiro-biomass\test\ID1001187975.jpg'
 resultado = predict_image(img_path)
 
 print("\n📊 Predicciones de biomasa:")
