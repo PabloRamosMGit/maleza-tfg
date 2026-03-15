@@ -12,6 +12,8 @@ import tensorflow as tf
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
 from tensorflow.keras.preprocessing import image
 
+# For plotting
+import matplotlib.pyplot as plt
 
 # ===============================
 # PATHS
@@ -44,7 +46,7 @@ train_wide_df = train_df.pivot(
     values='target'
 ).reset_index()
 
-print("Train wide dataframe shape:", train_wide_df.shape)
+print("Train wide dataframe shape:\n", train_wide_df)
 
 
 # ===============================
@@ -111,6 +113,37 @@ for img_path in tqdm(train_wide_df["image_path"]):
 train_features = np.array(train_features)
 
 print("Train feature matrix:", train_features)
+
+# ===============================
+# FEATURE CORRELATION ANALYSIS
+# ===============================
+
+# Convertir features a DataFrame para poder usar corrwith
+feature_column_names = [f"feat_{i}" for i in range(train_features.shape[1])]
+train_data = pd.DataFrame(train_features, columns=feature_column_names)
+
+# Agregar la columna target (asegúrate que esté alineada por índice)
+train_data['Dry_Total_g'] = train_wide_df['Dry_Total_g'].values
+
+# Calcular correlaciones
+correlations = train_data[feature_column_names].corrwith(train_data['Dry_Total_g'])
+
+# Top 5 más positivas y más negativas
+top_pos = correlations.nlargest(5)
+top_neg = correlations.nsmallest(5)
+
+plt.figure(figsize=(10, 4))
+top_features = pd.concat([top_pos, top_neg])
+top_features.plot(kind='bar', color=['green']*5 + ['red']*5)
+plt.title('Feature Correlations with Dry_Total_g')
+plt.ylabel('Correlation Coefficient')
+plt.xlabel('Feature Index (VGG16)')
+plt.grid(axis='y')
+plt.tight_layout()
+plt.show()
+
+print("Estas son las neuronas de VGG16 más útiles para predecir Dry_Green_g.")
+
 
 
 # ===============================

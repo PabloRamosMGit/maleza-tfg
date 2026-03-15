@@ -126,6 +126,11 @@ for idx, row in tqdm(train_wide_df.iterrows(), total=len(train_wide_df)):
 train_features = np.array(train_features)
 train_labels   = np.array(train_labels)
 
+print(f"train_features shape: {train_features.shape}")
+# Expected → (3927, 1536)
+print(f"train_labels shape:   {train_labels.shape}")
+# Expected → (3927, 5)
+
 print(f"Dataset aumentado: {train_features.shape[0]} muestras "
       f"({len(train_wide_df)} originales × {N_AUGMENTS + 1})")
 
@@ -176,10 +181,10 @@ def make_models():
     """Devuelve lista de regressores para ensamblar."""
     return [
         ('rf',  RandomForestRegressor(n_estimators=500, max_features=0.5,
-                                       random_state=RANDOM_SEED, n_jobs=-1)),
+                                       random_state=RANDOM_SEED, n_jobs=-1, verbose=2)),
         ('gbm', GradientBoostingRegressor(n_estimators=300, max_depth=4,
                                            learning_rate=0.05, subsample=0.8,
-                                           random_state=RANDOM_SEED)),
+                                           random_state=RANDOM_SEED, verbose=2)),
         ('svr', SVR(C=10, epsilon=0.1, kernel='rbf')),
         ('ridge', Ridge(alpha=10.0)),
     ]
@@ -250,6 +255,6 @@ for i, img_path in enumerate(unique_paths):
         })
 
 submission_df = pd.DataFrame(submission_rows)
-submission_df.to_csv('submission.csv', index=False)
-print("\nSubmission creado: submission.csv")
+submission_df.to_csv('submission_ai.csv', index=False)
+print("\nSubmission creado: submission_ai.csv")
 print(submission_df.head(10))
