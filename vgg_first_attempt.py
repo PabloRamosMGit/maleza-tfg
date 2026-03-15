@@ -207,7 +207,7 @@ print(submission_df.head())
 # SAVE MODEL & ARTIFACTS
 # ===============================
 
-SAVE_DIR = os.path.join(BASE_PATH, 'saved_model')
+SAVE_DIR = os.path.join(BASE_PATH, 'saved_model_vgg')
 os.makedirs(SAVE_DIR, exist_ok=True)
 
 # Guardar el RandomForest
