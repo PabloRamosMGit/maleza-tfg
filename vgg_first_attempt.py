@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 # ===============================
 
 # Base dataset path
-BASE_PATH = r'C:\Users\pablo\pablo-tfg-malezas\maleza-tfg\csiro-biomass'
+BASE_PATH = r'C:\Users\pablo\maleza-tfg\csiro-biomass'
 
 # CSV files
 TRAIN_CSV_PATH = os.path.join(BASE_PATH, 'train.csv')
