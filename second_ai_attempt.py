@@ -1,0 +1,347 @@
+import os
+import joblib
+import pandas as pd
+import numpy as np
+from tqdm import tqdm
+import albumentations as A
+import cv2
+
+from sklearn.linear_model import Ridge
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler
+
+import tensorflow as tf
+from tensorflow.keras.applications import EfficientNetB3 # type: ignore
+from tensorflow.keras.applications.efficientnet import preprocess_input # type: ignore
+
+# ===============================
+# PATHS
+# ===============================
+
+BASE_PATH      = r'C:\Users\pablo\maleza-tfg\csiro-biomass'
+TRAIN_CSV_PATH = os.path.join(BASE_PATH, 'train.csv')
+TEST_CSV_PATH  = os.path.join(BASE_PATH, 'test.csv')
+SAVE_DIR       = os.path.join(BASE_PATH, 'saved_model_v3_smalldata')
+
+IMG_SIZE    = 300
+RANDOM_SEED = 999
+
+# ---------------------------------------------------------------
+# Ajustes clave para dataset pequeño (357 imágenes):
+#   - Más augmentos por imagen → más datos artificiales
+#   - Menos folds → grupos de examen más grandes, más estables
+#   - Solo Ridge → modelo simple, menos riesgo de memorizar
+# ---------------------------------------------------------------
+N_FOLDS         = 5   # 5 folds: cada grupo de examen tiene ~71 imágenes originales
+N_AUGMENTS      = 10  # 10 versiones aumentadas por imagen de train (357 × 11 = 3927 ejemplos)
+N_TEST_AUGMENTS = 5   # 5 versiones aumentadas de la imagen de test para promediar (TTA)
+
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+
+# ===============================
+# LOAD DATA
+# ===============================
+
+train_df = pd.read_csv(TRAIN_CSV_PATH)
+test_df  = pd.read_csv(TEST_CSV_PATH)
+
+train_wide_df = train_df.pivot(
+    index='image_path',
+    columns='target_name',
+    values='target'
+).reset_index()
+
+TARGET_COLS = [c for c in train_wide_df.columns if c != 'image_path']
+print("Targets:", TARGET_COLS)
+print(f"Imágenes de train: {len(train_wide_df)}")
+print(f"Imágenes de test:  {len(test_df['image_path'].unique())}")
+
+
+# ===============================
+# AUGMENTATION
+# Inspirado en la solución ganadora de la competencia CSIRO Biomass.
+# Para train: transformaciones variadas que simulan distintas condiciones
+# de iluminación, orientación y ruido de cámara.
+# Para test: mismas transformaciones (sin normalización distinta) para TTA.
+# ===============================
+
+def get_train_transforms():
+    return A.Compose([
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomRotate90(p=0.5),
+        A.GaussNoise(p=0.3),
+        A.RandomBrightnessContrast(
+            brightness_limit=0.2,
+            contrast_limit=0.2,
+            p=0.75
+        ),
+        A.HueSaturationValue(
+            hue_shift_limit=10,
+            sat_shift_limit=20,
+            val_shift_limit=20,
+            p=0.5
+        ),
+        A.CLAHE(clip_limit=2.0, tile_grid_size=(8, 8), p=0.3),
+        A.ColorJitter(
+            brightness=0.2,
+            contrast=0.2,
+            saturation=0.2,
+            hue=0.1,
+            p=0.75
+        ),
+        A.Resize(IMG_SIZE, IMG_SIZE),
+    ], seed=RANDOM_SEED)
+
+
+def get_test_transforms():
+    return A.Compose([
+        A.HorizontalFlip(p=0.5),
+        A.VerticalFlip(p=0.5),
+        A.RandomRotate90(p=0.5),
+        A.RandomBrightnessContrast(
+            brightness_limit=0.1,
+            contrast_limit=0.1,
+            p=0.5
+        ),
+        A.HueSaturationValue(
+            hue_shift_limit=5,
+            sat_shift_limit=10,
+            val_shift_limit=10,
+            p=0.3
+        ),
+        A.Resize(IMG_SIZE, IMG_SIZE),
+    ], seed=RANDOM_SEED)
+
+train_augment = get_train_transforms()
+test_augment  = get_test_transforms()
+
+
+# ===============================
+# LOAD EfficientNetB3
+# ===============================
+
+base = EfficientNetB3(
+    weights='imagenet',
+    include_top=False,
+    pooling='avg',
+    input_shape=(IMG_SIZE, IMG_SIZE, 3)
+)
+base.trainable = False
+print(f"EfficientNetB3 cargado. Output shape: {base.output_shape}")
+
+
+def load_image_as_array(img_path):
+    img = cv2.imread(img_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB) # type: ignore
+    img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+    return img
+
+
+def extract_features(img_array):
+    """
+    Convierte una imagen (numpy array RGB) en un vector de características
+    usando EfficientNetB3 pre-entrenado en ImageNet.
+    """
+    x = img_array.astype(np.float32)
+    x = np.expand_dims(x, axis=0)
+    x = preprocess_input(x)          # normalización propia de EfficientNet
+    return base.predict(x, verbose=0).flatten()
+
+
+# ===============================
+# EXTRACT TRAIN FEATURES
+# Se guarda en disco para no recomputar si ya existe.
+# Con N_AUGMENTS=10: 357 × 11 = 3,927 ejemplos totales.
+# ===============================
+
+TRAIN_FEATS_PATH  = os.path.join(SAVE_DIR, 'train_features.npy')
+TRAIN_LABELS_PATH = os.path.join(SAVE_DIR, 'train_labels.npy')
+
+if os.path.exists(TRAIN_FEATS_PATH) and os.path.exists(TRAIN_LABELS_PATH):
+    print("Cargando features de TRAIN desde disco...")
+    train_features = np.load(TRAIN_FEATS_PATH)
+    train_labels   = np.load(TRAIN_LABELS_PATH)
+    print(f"Cargado: {train_features.shape}")
+else:
+    print(f"Extrayendo features de TRAIN con augmentación (×{N_AUGMENTS + 1})...")
+    train_features, train_labels = [], []
+
+    for _, row in tqdm(train_wide_df.iterrows(), total=len(train_wide_df)):
+        full_path = os.path.join(BASE_PATH, row['image_path'])
+        img_array = load_image_as_array(full_path)
+        label     = row[TARGET_COLS].values.astype(np.float32)
+
+        # Imagen original
+        train_features.append(extract_features(img_array))
+        train_labels.append(label)
+
+        # Versiones aumentadas
+        for _ in range(N_AUGMENTS):
+            aug_img = train_augment(image=img_array)['image']
+            train_features.append(extract_features(aug_img))
+            train_labels.append(label)
+
+    train_features = np.array(train_features)
+    train_labels   = np.array(train_labels)
+
+    np.save(TRAIN_FEATS_PATH,  train_features)
+    np.save(TRAIN_LABELS_PATH, train_labels)
+    print(f"Features guardadas en {SAVE_DIR}")
+
+print(f"train_features: {train_features} | train_labels: {train_labels}")
+print(f"→ {len(train_wide_df)} imágenes × {N_AUGMENTS + 1} = {train_features.shape[0]} ejemplos totales")
+
+
+# ===============================
+# NORMALIZAR
+# StandardScaler: pone todos los números en la misma escala.
+# Necesario especialmente para Ridge, que es sensible a la escala.
+# ===============================
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(train_features)
+y_train = train_labels
+
+joblib.dump(scaler, os.path.join(SAVE_DIR, 'scaler.pkl'))
+
+
+# ===============================
+# EXTRACT TEST FEATURES (TTA)
+# Con una sola imagen de test, TTA promedia N_TEST_AUGMENTS versiones
+# distintas para obtener una predicción más estable.
+# ===============================
+
+TEST_FEATS_PATH = os.path.join(SAVE_DIR, 'test_features.npy')
+unique_paths    = test_df['image_path'].unique()
+
+print(f"\nImágenes únicas en test: {len(unique_paths)}")
+
+if os.path.exists(TEST_FEATS_PATH):
+    print("Cargando features de TEST desde disco...")
+    test_features = np.load(TEST_FEATS_PATH)
+else:
+    print(f"Extrayendo features de TEST con TTA (×{N_TEST_AUGMENTS + 1})...")
+    test_features_list = []
+
+    for img_path in tqdm(unique_paths):
+        full_path = os.path.join(BASE_PATH, img_path)
+        img_array = load_image_as_array(full_path)
+
+        # Imagen original + versiones aumentadas → promedio de vectores
+        preds_tta = [extract_features(img_array)]
+        for _ in range(N_TEST_AUGMENTS):
+            aug = test_augment(image=img_array)['image']
+            preds_tta.append(extract_features(aug))
+
+        # Promediar los vectores de características (no las predicciones)
+        test_features_list.append(np.mean(preds_tta, axis=0))
+
+    test_features = np.array(test_features_list)
+    np.save(TEST_FEATS_PATH, test_features)
+    print(f"Test features guardadas: {test_features.shape}")
+
+X_test = scaler.transform(test_features)
+
+
+# ===============================
+# MODELO: Solo Ridge
+#
+# Con 357 imágenes, Random Forest tiende a memorizar los datos de train.
+# Ridge es más simple y generaliza mejor con pocos datos.
+# Se prueban varios valores de alpha para encontrar el mejor por target.
+# ===============================
+
+ALPHA_OPTIONS = [0.1, 1.0, 10.0, 100.0]  # cuánto penalizar la complejidad
+
+kf         = KFold(n_splits=N_FOLDS, shuffle=True, random_state=RANDOM_SEED)
+oof_preds  = np.zeros_like(y_train)
+test_preds = np.zeros((X_test.shape[0], len(TARGET_COLS)))
+
+all_models = {}
+
+print(f"\nEntrenando Ridge con {N_FOLDS}-Fold CV...")
+print(f"Probando alphas: {ALPHA_OPTIONS}\n")
+
+for t_idx, target in enumerate(TARGET_COLS):
+    y_t = y_train[:, t_idx]
+    fold_test_preds = np.zeros((N_FOLDS, X_test.shape[0]))
+    target_models   = []
+
+    for fold, (train_idx, val_idx) in enumerate(kf.split(X_train)):
+        X_tr, X_val = X_train[train_idx], X_train[val_idx]
+        y_tr, y_val = y_t[train_idx],     y_t[val_idx]
+
+        # Elegir el mejor alpha para este fold/target
+        best_alpha = ALPHA_OPTIONS[0]
+        best_rmse  = float('inf')
+
+        for alpha in ALPHA_OPTIONS:
+            mdl_tmp = Ridge(alpha=alpha)
+            mdl_tmp.fit(X_tr, y_tr)
+            val_pred = mdl_tmp.predict(X_val)
+            rmse_tmp = np.sqrt(np.mean((val_pred - y_val) ** 2))
+            if rmse_tmp < best_rmse:
+                best_rmse  = rmse_tmp
+                best_alpha = alpha
+
+        # Entrenar modelo final con el mejor alpha
+        best_model = Ridge(alpha=best_alpha)
+        best_model.fit(X_tr, y_tr)
+
+        fold_preds_val  = best_model.predict(X_val)
+        fold_preds_test = best_model.predict(X_test)
+
+        oof_preds[val_idx, t_idx] = fold_preds_val
+        fold_test_preds[fold]     = fold_preds_test
+        target_models.append(best_model)
+
+        rmse = np.sqrt(np.mean((fold_preds_val - y_val) ** 2))
+        print(f"  {target} | fold {fold+1}/{N_FOLDS} | alpha={best_alpha} | RMSE = {rmse:.4f}")
+
+    test_preds[:, t_idx] = fold_test_preds.mean(axis=0)
+    all_models[target]   = target_models
+
+
+# ===============================
+# GUARDAR MODELOS
+# ===============================
+
+joblib.dump(all_models,        os.path.join(SAVE_DIR, 'ridge_models.pkl'))
+joblib.dump(list(TARGET_COLS), os.path.join(SAVE_DIR, 'target_cols.pkl'))
+
+print(f"\nModelos guardados en: {SAVE_DIR}")
+
+
+# ===============================
+# RMSE OOF REPORT
+# ===============================
+
+print("\n--- RMSE OOF por target ---")
+for t_idx, target in enumerate(TARGET_COLS):
+    rmse = np.sqrt(np.mean((oof_preds[:, t_idx] - y_train[:, t_idx]) ** 2))
+    print(f"  {target}: {rmse:.4f}")
+
+overall_rmse = np.sqrt(np.mean((oof_preds - y_train) ** 2))
+print(f"\n  RMSE global OOF: {overall_rmse:.4f}")
+
+
+# ===============================
+# SUBMISSION
+# ===============================
+
+test_preds = np.clip(test_preds, 0, None)   # la biomasa no puede ser negativa
+
+submission_rows = []
+for i, img_path in enumerate(unique_paths):
+    for j, target in enumerate(TARGET_COLS):
+        submission_rows.append({
+            'sample_id': f"{img_path}_{target}",
+            'target':    test_preds[i, j]
+        })
+
+submission_df = pd.DataFrame(submission_rows)
+submission_df.to_csv('submission_v3.csv', index=False)
+print("\nSubmission creado: submission_v3.csv")
+print(submission_df)
