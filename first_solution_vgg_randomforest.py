@@ -61,7 +61,7 @@ train_wide_df = train_df.pivot(
     values="target"
 ).reset_index()
 
-print(train_wide_df.head())
+print(train_wide_df)
 
 
 # ===============================
@@ -231,29 +231,24 @@ print("Matriz de características de validación:", val_features.shape)
 TARGET_COLS = train_wide_df.columns[1:]   # todas las columnas excepto image_path
 
 X_train = train_features
-X_val   = val_features
+y_train = train_split_df[TARGET_COLS].values   # shape: (285, 5)
 
-print(f"X_train: {X_train.shape}  |  y_train: {train_split_df[TARGET_COLS].shape}")
+X_val   = val_features
+y_val   = val_split_df[TARGET_COLS].values     # shape: (72, 5)
+
+print(f"X_train: {X_train.shape}  |  y_train: {y_train.shape}")
 print("Entrenando RandomForestRegressor...")
 
-# Se entrena un modelo independiente por cada variable objetivo ya que
-# RandomForestRegressor de sklearn acepta múltiples targets, pero mantener
-# modelos separados permite un análisis más detallado por componente de biomasa.
-models = {}
+# sklearn soporta múltiples variables objetivo de forma nativa,
+# por lo que se entrena un único modelo para todas las columnas target.
+model = RandomForestRegressor(
+    n_estimators=300,
+    random_state=RANDOM_SEED,
+    n_jobs=-1,   # usa todos los núcleos CPU disponibles
+    verbose=2
+)
 
-for col in TARGET_COLS:
-    print(f"  Entrenando modelo para: {col}")
-
-    rf = RandomForestRegressor(
-        n_estimators=300,
-        random_state=RANDOM_SEED,
-        n_jobs=-1,   # usa todos los núcleos CPU disponibles
-        verbose=2
-    )
-
-    rf.fit(X_train, train_split_df[col].values)
-    models[col] = rf
-
+model.fit(X_train, y_train)
 print("Entrenamiento completado.")
 
 
@@ -285,13 +280,15 @@ print("=" * 60)
 
 results = []
 
-for col in TARGET_COLS:
+# Generar predicciones sobre el conjunto de validación
+# y_pred tiene shape (72, 5): una fila por imagen, una columna por target
+y_pred = model.predict(X_val)
 
-    # Valores reales del conjunto de validación para esta variable
-    y_true_col = val_split_df[col].values
+for i, col in enumerate(TARGET_COLS):
 
-    # Predicción del modelo correspondiente a esta variable
-    y_pred_col = models[col].predict(X_val)
+    # Valores reales y predichos para esta variable objetivo
+    y_true_col = y_val[:, i]
+    y_pred_col = y_pred[:, i]
 
     # --- MSE: promedio de (real - predicho)² ---
     mse  = mean_squared_error(y_true_col, y_pred_col)
@@ -343,10 +340,9 @@ test_features = np.array(test_features)
 
 print("Generando predicciones finales...")
 
-# Cada modelo predice su variable objetivo y se apilan en columnas
-test_predictions = np.column_stack([
-    models[col].predict(test_features) for col in TARGET_COLS
-])
+# Un único modelo predice las 5 variables objetivo simultáneamente
+# test_predictions tiene shape (n_test, 5)
+test_predictions = model.predict(test_features)
 
 # Armar DataFrame ancho con las predicciones
 predictions_df = pd.DataFrame(test_predictions, columns=TARGET_COLS)
@@ -376,9 +372,8 @@ print(submission_df.head())
 # GUARDAR MODELO Y ARTEFACTOS
 # ===============================
 
-# Guardar un archivo .pkl por cada modelo (uno por variable objetivo)
-for col, rf in models.items():
-    joblib.dump(rf, os.path.join(SAVE_DIR, f"random_forest_{col}.pkl"))
+# Guardar el modelo único que predice todas las variables objetivo
+joblib.dump(model, os.path.join(SAVE_DIR, "random_forest.pkl"))
 
 # Guardar los nombres de los targets (para reconstruir el submission en inferencia)
 joblib.dump(list(TARGET_COLS), os.path.join(SAVE_DIR, "target_cols.pkl"))
