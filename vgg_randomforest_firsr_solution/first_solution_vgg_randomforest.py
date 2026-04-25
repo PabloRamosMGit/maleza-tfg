@@ -363,8 +363,8 @@ submission_df = pd.merge(
     on=["image_path", "target_name"]
 )[["sample_id", "target"]].dropna()
 
-submission_df.to_csv("submission.csv", index=False)
-print("Archivo de entrega creado: submission.csv")
+submission_df.to_csv("submission_vgg_randomforest.csv", index=False)
+print("Archivo de entrega creado: submission_vgg_randomforest.csv")
 print(submission_df.head())
 
 
