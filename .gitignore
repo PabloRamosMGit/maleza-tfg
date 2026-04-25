@@ -208,3 +208,5 @@ __marimo__/
 
 # CSIRO Biomass Dataset - https://www.kaggle.com/competitions/csiro-biomass/data
 csiro-biomass/
+
+saved_model_vgg/
