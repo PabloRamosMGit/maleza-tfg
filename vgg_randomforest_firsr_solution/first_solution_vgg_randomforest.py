@@ -4,6 +4,21 @@
 #          Extracción de Características, Regresión,
 #          Validación y Calibración
 # ============================================================
+# NOTAS IMPORTANTES:
+# Esta es una versión local que se ejecuta en CPU. Su equivalente para
+# Kaggle está disponible en:
+# https://www.kaggle.com/code/pabloramosmadrigal/solution-one-vg116
+#
+# SOBRE LAS MÉTRICAS DE DESEMPEÑO:
+# El score de Kaggle no es directamente comparable con el R² calculado
+# aquí debido a diferencias en la metodología de evaluación. El R²
+# presentado en este archivo se calcula localmente sobre un conjunto de
+# validación con distribución conocida. En contraste, el score de Kaggle
+# se basa en un conjunto de prueba privado cuya distribución puede diferir
+# significativamente, lo que invalida cualquier comparación objetiva entre
+# ambas métricas.
+# ============================================================
+# ============================================================
 
 # Para manipulación de datos
 import os
@@ -351,7 +366,7 @@ predictions_df.insert(0, "image_path", unique_image_paths)
 # Convertir de formato ancho a largo (long format requerido para la entrega)
 predictions_long_df = predictions_df.melt(
     id_vars=["image_path"],
-    value_vars=TARGET_COLS,
+    value_vars=list(TARGET_COLS),
     var_name="target_name",
     value_name="target"
 )
