@@ -289,43 +289,94 @@ print("Entrenamiento completado.")
 #       mejor ajuste.
 # ============================================================
 
+# ============================================================
+# MÓDULO DE VALIDACIÓN (ACTUALIZADO CON R² PONDERADO)
+# ============================================================
+
+# Pesos oficiales de la competición
+TARGET_WEIGHTS = {
+    "Dry_Green_g":  0.1,
+    "Dry_Dead_g":   0.1,
+    "Dry_Clover_g": 0.1,
+    "GDM_g":        0.2,
+    "Dry_Total_g":  0.5
+}
+
+def weighted_r2_score(y_true, y_pred, weights):
+    """
+    Calcula el R² ponderado definido por la competición:
+    R²_w = 1 - (sum(w*(y - ŷ)²) / sum(w*(y - ȳ_w)²))
+    donde ȳ_w = sum(w * y) / sum(w)
+    """
+    y_true = np.asarray(y_true).ravel()
+    y_pred = np.asarray(y_pred).ravel()
+    w      = np.asarray(weights).ravel()
+
+    # Media ponderada de los valores reales
+    y_mean_w = np.sum(w * y_true) / np.sum(w)
+
+    # Suma de cuadrados ponderada de los residuos y de la variación total
+    ss_res = np.sum(w * (y_true - y_pred) ** 2)
+    ss_tot = np.sum(w * (y_true - y_mean_w) ** 2)
+
+    # Si no hay variación (ss_tot == 0) se evita división por cero
+    if ss_tot == 0:
+        return float('nan')
+    return 1 - ss_res / ss_tot
+
+
 print("\n" + "=" * 60)
 print("MÓDULO DE VALIDACIÓN Y CALIBRACIÓN")
 print("=" * 60)
 
 results = []
+# Vectores para acumular todas las observaciones y pesos
+all_y_true = []
+all_y_pred = []
+all_weights = []
 
 # Generar predicciones sobre el conjunto de validación
-# y_pred tiene shape (72, 5): una fila por imagen, una columna por target
+# y_pred tendrá shape (n_val, 5): una fila por imagen, una columna por target
 y_pred = model.predict(X_val)
 
 for i, col in enumerate(TARGET_COLS):
 
-    # Valores reales y predichos para esta variable objetivo
     y_true_col = y_val[:, i]
     y_pred_col = y_pred[:, i]
 
-    # --- MSE: promedio de (real - predicho)² ---
+    # (Opcional) Aplicar clipping a cero, como en la inferencia final
+    y_pred_col = np.clip(y_pred_col, 0, None)
+
+    # Métricas individuales por target
     mse  = mean_squared_error(y_true_col, y_pred_col)
-
-    # --- RMSE: raíz del MSE, misma unidad que la biomasa (g/m²) ---
     rmse = np.sqrt(mse)
-
-    # --- R²: proporción de varianza explicada por el modelo ---
     r2   = r2_score(y_true_col, y_pred_col)
 
     results.append({"Variable objetivo": col, "MSE": mse, "RMSE": rmse, "R²": r2})
-
     print(f"  {col:<20}  MSE={mse:>10.4f}  RMSE={rmse:>8.4f} g/m²  R²={r2:>6.4f}")
 
-# Promedio global para tener una visión general del modelo
+    # Acumular para el R² ponderado global
+    all_y_true.append(y_true_col)
+    all_y_pred.append(y_pred_col)
+    all_weights.append(np.full_like(y_true_col, TARGET_WEIGHTS[col]))
+
+# Concatenar todos los targets en un solo vector
+all_y_true  = np.concatenate(all_y_true)
+all_y_pred  = np.concatenate(all_y_pred)
+all_weights = np.concatenate(all_weights)
+
+# Calcular R² ponderado global
+r2_weighted = weighted_r2_score(all_y_true, all_y_pred, all_weights)
+
+# Resumen global
 results_df = pd.DataFrame(results)
 mean_mse  = results_df["MSE"].mean()
 mean_rmse = results_df["RMSE"].mean()
 mean_r2   = results_df["R²"].mean()
 
 print("-" * 60)
-print(f"  {'PROMEDIO GLOBAL':<20}  MSE={mean_mse:>10.4f}  RMSE={mean_rmse:>8.4f} g/m²  R²={mean_r2:>6.4f}")
+print(f"  {'PROMEDIO GLOBAL (R² simple)':<30}  MSE={mean_mse:>10.4f}  RMSE={mean_rmse:>8.4f} g/m²  R²={mean_r2:>6.4f}")
+print(f"  {'R² PONDERADO (métrica oficial)':<30}  R²={r2_weighted:>6.4f}")
 print("=" * 60 + "\n")
 
 
@@ -378,8 +429,8 @@ submission_df = pd.merge(
     on=["image_path", "target_name"]
 )[["sample_id", "target"]].dropna()
 
-submission_df.to_csv("submission_vgg_randomforest.csv", index=False)
-print("Archivo de entrega creado: submission_vgg_randomforest.csv")
+submission_df.to_csv("submission_vgg_randomforest2.csv", index=False)
+print("Archivo de entrega creado: submission_vgg_randomforest2.csv")
 print(submission_df.head())
 
 

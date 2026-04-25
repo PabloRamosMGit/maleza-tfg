@@ -1,0 +1,56 @@
+Targets: ['Dry_Clover_g', 'Dry_Dead_g', 'Dry_Green_g', 'Dry_Total_g', 'GDM_g']
+Imágenes de train: 357
+Imágenes de test:  1
+I0000 00:00:1777148440.492104      55 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 15511 MB memory:  -> device: 0, name: Tesla P100-PCIE-16GB, pci bus id: 0000:00:04.0, compute capability: 6.0
+Modelo cargado. Forma del vector de características: (None, 1536)
+Imágenes de entrenamiento : 285
+Imágenes de validación    : 72
+
+Extrayendo features de TRAIN...
+100%|██████████| 285/285 [00:21<00:00, 13.49it/s]
+Procesando 285 imágenes en batches de 32...
+  0%|          | 0/9 [00:00<?, ?it/s]I0000 00:00:1777148469.024065      55 cuda_dnn.cc:529] Loaded cuDNN version 91002
+100%|██████████| 9/9 [00:07<00:00,  1.24it/s]
+Forma del vector de características: (285, 1536)
+
+Extrayendo features del conjunto de VALIDACIÓN...
+100%|██████████| 72/72 [00:05<00:00, 13.40it/s]
+100%|██████████| 3/3 [00:01<00:00,  1.66it/s]
+Matriz de características de validación: (72, 1536)
+
+Extrayendo features de TEST...
+100%|██████████| 1/1 [00:00<00:00, 12.57it/s]
+100%|██████████| 1/1 [00:00<00:00,  1.59it/s]
+
+Entrenando RidgeCV...
+Alphas a evaluar: [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0]
+
+  Dry_Clover_g         → mejor alpha seleccionado por LOO-CV: 1000.0
+  Dry_Dead_g           → mejor alpha seleccionado por LOO-CV: 1000.0
+  Dry_Green_g          → mejor alpha seleccionado por LOO-CV: 1000.0
+  Dry_Total_g          → mejor alpha seleccionado por LOO-CV: 1000.0
+  GDM_g                → mejor alpha seleccionado por LOO-CV: 1000.0
+
+Entrenamiento completado.
+
+============================================================
+MÓDULO DE VALIDACIÓN Y CALIBRACIÓN
+============================================================
+  Dry_Clover_g          MSE=  155.1907  RMSE= 12.4576 g/m²  R²=0.1231
+  Dry_Dead_g            MSE=   89.5364  RMSE=  9.4624 g/m²  R²=0.1989
+  Dry_Green_g           MSE=  438.8739  RMSE= 20.9493 g/m²  R²=0.1742
+  Dry_Total_g           MSE=  545.4859  RMSE= 23.3556 g/m²  R²=0.1085
+  GDM_g                 MSE=  393.0124  RMSE= 19.8245 g/m²  R²=0.2320
+------------------------------------------------------------
+  PROMEDIO GLOBAL (R² simple)     R²=0.1673
+  R² PONDERADO (métrica oficial)  R²=0.3755
+============================================================
+
+Archivo de entrega creado: submission.csv
+                    sample_id     target
+0  ID1001187975__Dry_Clover_g   5.764249
+1    ID1001187975__Dry_Dead_g  19.233246
+2   ID1001187975__Dry_Green_g  11.840946
+3   ID1001187975__Dry_Total_g  36.838436
+4         ID1001187975__GDM_g  17.605177
+Modelo y artefactos guardados en: saved_model_efficientnet
