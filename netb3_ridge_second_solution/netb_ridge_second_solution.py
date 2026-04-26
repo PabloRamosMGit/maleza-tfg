@@ -1,10 +1,10 @@
 # ============================================================
-# SOLUCIÓN 2 - EfficientNetB3 + Ridge Regression (LOCAL)
+# SOLUCIÓN 2 - EfficientNetB3 + Ridge Regression
 # Incluye: Preprocesamiento, Aumento de Datos,
 #          Extracción de Características, Regresión,
 #          Validación y Calibración
-# Nota: Esta solucion esta en Kaggle debido a que es lento de procesar sin GPU.
-# Kaggle: https://www.kaggle.com/code/pabloramosmadrigal/second-solution-b3-and-ridgecv
+#Nota: Esta solucion se ejecuto en Kaggle con GPU, este es el link:
+# https://www.kaggle.com/code/pabloramosmadrigal/b3-ridge-second-solution
 # ============================================================
 
 # Para manipulación de datos
@@ -19,7 +19,7 @@ import albumentations as A
 import cv2
 
 # Para el modelo de aprendizaje automático
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -33,7 +33,7 @@ import keras_cv
 # RUTAS
 # ===============================
 
-BASE_PATH = r"C:\Users\pablo\maleza-tfg\csiro-biomass"   # carpeta raíz del dataset local
+BASE_PATH = "/kaggle/input/competitions/csiro-biomass"   # carpeta raíz del dataset local
 
 TRAIN_CSV_PATH = os.path.join(BASE_PATH, "train.csv")
 TEST_CSV_PATH  = os.path.join(BASE_PATH, "test.csv")
@@ -58,10 +58,11 @@ BATCH_SIZE      = 32    # Número de imágenes procesadas simultáneamente en GP
 # La augmentación provoca data leakage en LOO-CV y no aporta beneficio real
 # a un modelo lineal con extractor de características congelado.
 
-# Valores de alpha que RidgeCV evaluará internamente mediante cross-validation.
-# RidgeCV probará cada uno y seleccionará automáticamente el que minimice
-# el error de validación, sin necesidad de un loop manual de folds.
-ALPHA_OPTIONS   = [0.01, 0.1, 1.0, 10.0, 100.0, 1000.0]
+# Alpha controla la fuerza de regularización L2 de Ridge.
+# Un valor alto penaliza más los coeficientes grandes → modelo más simple.
+# Se usa 1.0 que es el valor por defecto recomendado por sklearn como
+# punto de partida razonable sin necesidad de búsqueda exhaustiva.
+ALPHA = 1000
 
 
 # ===============================
@@ -89,34 +90,31 @@ print(f"Imágenes de test:  {len(test_df['image_path'].unique())}")
 # ===============================
 # MÓDULO DE AUMENTO DE DATOS
 # ===============================
-# Se definen transformaciones geométricas y de color sencillas que se
-# aplican aleatoriamente a cada imagen SOLO durante el entrenamiento.
-# El objetivo es aumentar artificialmente la variabilidad del conjunto
-# de entrenamiento para que el modelo generalice mejor.
+# Esta etapa no ayuda a mejorar el score usando Ridge
 
-def get_train_transforms():
-    """
-    Devuelve un pipeline de albumentations con transformaciones simples:
-      - HorizontalFlip : volteo horizontal con probabilidad 0.5
-      - VerticalFlip   : volteo vertical con probabilidad 0.5
-      - RandomRotate90 : rotación aleatoria de 90° con probabilidad 0.5
-      - RandomBrightnessContrast : variación leve de brillo y contraste
-    """
-    return A.Compose([
-        A.HorizontalFlip(p=0.5),
-        A.VerticalFlip(p=0.5),
-        A.RandomRotate90(p=0.5),
-        A.RandomBrightnessContrast(
-            brightness_limit=0.2,
-            contrast_limit=0.2,
-            p=0.5
-        ),
-        A.Resize(IMG_SIZE, IMG_SIZE),
-    ], seed=RANDOM_SEED)
+# def get_train_transforms():
+#     """
+#     Devuelve un pipeline de albumentations con transformaciones simples:
+#       - HorizontalFlip : volteo horizontal con probabilidad 0.5
+#       - VerticalFlip   : volteo vertical con probabilidad 0.5
+#       - RandomRotate90 : rotación aleatoria de 90° con probabilidad 0.5
+#       - RandomBrightnessContrast : variación leve de brillo y contraste
+#     """
+#     return A.Compose([
+#         A.HorizontalFlip(p=0.5),
+#         A.VerticalFlip(p=0.5),
+#         A.RandomRotate90(p=0.5),
+#         A.RandomBrightnessContrast(
+#             brightness_limit=0.2,
+#             contrast_limit=0.2,
+#             p=0.5
+#         ),
+#         A.Resize(IMG_SIZE, IMG_SIZE),
+#     ], seed=RANDOM_SEED)
 
 
-# Instanciar el pipeline de aumento una sola vez
-train_augment = get_train_transforms()
+# # Instanciar el pipeline de aumento una sola vez
+# train_augment = get_train_transforms()
 
 
 # ===============================
@@ -313,75 +311,34 @@ X_test        = scaler.transform(test_features)
 
 
 # ===============================
-# ENTRENAMIENTO DEL MODELO - RidgeCV
+# ENTRENAMIENTO DEL MODELO - Ridge
 # ===============================
-# RidgeCV es una versión de Ridge que incorpora la selección automática
-# del parámetro de regularización alpha mediante cross-validation interna.
+# Ridge Regression minimiza: ||y - Xw||² + alpha * ||w||²
+# El término alpha * ||w||² penaliza coeficientes grandes, evitando
+# sobreajuste cuando hay muchas características (1536) y pocas muestras (285).
 #
-# ¿Por qué RidgeCV en lugar de Ridge + loop manual de folds?
-#   - Con Ridge normal habría que iterar manualmente sobre cada valor de
-#     alpha, entrenar un modelo por cada combinación (fold × alpha × target)
-#     y elegir el mejor. Eso implica mucho código repetitivo y propenso
-#     a errores.
-#   - RidgeCV hace exactamente eso de forma interna y eficiente: prueba
-#     todos los alphas de ALPHA_OPTIONS usando Leave-One-Out CV (por defecto)
-#     o KFold si se especifica cv=, y guarda automáticamente el mejor alpha
-#     en el atributo .alpha_ de cada modelo entrenado.
-#   - El resultado es el mismo, pero con mucho menos código.
-#
-# Parámetros clave de RidgeCV:
-#   - alphas      : lista de valores de regularización a evaluar.
-#                   Un alpha alto → más regularización → modelo más simple.
-#                   Un alpha bajo → menos regularización → puede sobreajustar.
-#   - cv          : número de folds para la validación cruzada interna.
-#                   Si cv=None usa Leave-One-Out (eficiente para datasets pequeños).
-#   - scoring     : métrica usada para comparar alphas. "neg_mean_squared_error"
-#                   equivale a minimizar el MSE, que es lo que buscamos.
-#   - store_cv_results : si es True, guarda los errores de cada alpha para
-#                   poder inspeccionarlos después con .cv_results_.
+# Se usa un modelo por variable objetivo porque Ridge con y 2D entrena
+# internamente un regresor independiente por columna de todas formas,
+# pero el loop hace explícita esa separación para facilitar el análisis
+# individual de cada componente de biomasa.
 
 models     = {}
 test_preds = np.zeros((X_test.shape[0], len(TARGET_COLS)))
 
-print(f"\nEntrenando RidgeCV...")
-print(f"Alphas a evaluar: {ALPHA_OPTIONS}\n")
+print(f"\nEntrenando Ridge (alpha={ALPHA})...")
 
 for t_idx, target in enumerate(TARGET_COLS):
 
-    # RidgeCV con cv=None usa Leave-One-Out CV (LOO) de forma eficiente.
-    #
-    # ¿Por qué LOO en lugar de KFold?
-    #   - Con cv=5 (KFold), el dataset se divide en 5 partes: 4 para entrenar
-    #     y 1 para validar, repitiendo 5 veces. Con pocos datos (3135 muestras)
-    #     cada fold de validación tiene solo ~627 muestras, lo que puede dar
-    #     una estimación ruidosa del error.
-    #   - Con cv=None (LOO), cada muestra actúa una vez como validación mientras
-    #     el resto entrena. Es la estimación más precisa posible del error, y
-    #     sklearn la implementa de forma algebraica sin reentrenar N veces,
-    #     por lo que es igual de rápida que KFold.
-    #
-    # Nota importante sobre scoring:
-    #   - Cuando cv=None (LOO), el parámetro scoring se IGNORA internamente.
-    #     RidgeCV siempre usa MSE para comparar alphas en modo LOO, sin importar
-    #     qué se le pase en scoring. Por eso no se especifica scoring aquí.
-    #   - Cuando cv=5 (KFold), scoring por defecto es R², no MSE. En ese caso
-    #     sí habría que pasar scoring="neg_mean_squared_error" para ser consistente.
-    model_cv = RidgeCV(
-        alphas=ALPHA_OPTIONS,   # valores de alpha que LOO-CV comparará internamente
-        cv=None,                # None → Leave-One-Out CV eficiente (recomendado para datasets pequeños)
-        fit_intercept=True      # incluir término independiente en la regresión
+    model_r = Ridge(
+        alpha=ALPHA,         # regularización L2: penaliza coeficientes grandes
+        fit_intercept=True   # incluir término independiente en la regresión
     )
 
-    # Se entrena sobre el conjunto completo de entrenamiento (ya con augmentación).
-    # RidgeCV selecciona el mejor alpha automáticamente durante este fit.
-    model_cv.fit(X_train, y_train[:, t_idx])
+    model_r.fit(X_train, y_train[:, t_idx])
 
-    # .alpha_ contiene el mejor valor de alpha encontrado por LOO-CV
-    print(f"  {target:<20} → mejor alpha seleccionado por LOO-CV: {model_cv.alpha_}")
-
-    # Guardar el modelo entrenado y generar predicciones en test
-    models[target]         = model_cv
-    test_preds[:, t_idx]   = model_cv.predict(X_test)
+    models[target]        = model_r
+    test_preds[:, t_idx]  = model_r.predict(X_test)
+    print(f"  {target:<20} → entrenado")
 
 print("\nEntrenamiento completado.")
 
