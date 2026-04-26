@@ -1,0 +1,23 @@
+Entrenamiento completado.
+
+============================================================
+MÓDULO DE VALIDACIÓN Y CALIBRACIÓN
+============================================================
+  Dry_Clover_g          MSE=  153.2385  RMSE= 12.3790 g/m²  R²=0.1341
+  Dry_Dead_g            MSE=  120.9961  RMSE= 10.9998 g/m²  R²=-0.0826
+  Dry_Green_g           MSE=  862.5075  RMSE= 29.3685 g/m²  R²=-0.6230
+  Dry_Total_g           MSE=  689.5374  RMSE= 26.2590 g/m²  R²=-0.1269
+  GDM_g                 MSE=  957.9562  RMSE= 30.9509 g/m²  R²=-0.8719
+------------------------------------------------------------
+  PROMEDIO GLOBAL (R² simple)     MSE=  556.8471  RMSE= 21.9914 g/m²  R²=-0.3140
+  R² PONDERADO (métrica oficial)  R²=0.0327
+============================================================
+
+Generando predicciones finales...
+Archivo de entrega creado: submission.csv
+                    sample_id     target
+0  ID1001187975__Dry_Clover_g   0.000000
+1    ID1001187975__Dry_Dead_g   9.836206
+2   ID1001187975__Dry_Green_g  30.947397
+3   ID1001187975__Dry_Total_g  30.915379
+4         ID1001187975__GDM_g  21.079227
