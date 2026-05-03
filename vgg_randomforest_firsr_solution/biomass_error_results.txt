@@ -1,0 +1,63 @@
+==============================================================
+RESULTADOS DE ERROR DE BIOMASA
+Generado el: 2026-05-03 16:10:20
+==============================================================
+
+Imagen 1: train/ID588120964.jpg
+  Dry_Total_g real       : 119.1000 g/m²
+  Dry_Total_g predicción : 97.7120 g/m²
+  Error de biomasa (abs) : 21.3880 g/m²
+  Todos los parámetros predichos:
+    Dry_Clover_g        : 1.9260 g/m²
+    Dry_Dead_g          : 22.0563 g/m²
+    Dry_Green_g         : 73.7298 g/m²
+    Dry_Total_g         : 97.7120 g/m²
+    GDM_g               : 75.6557 g/m²
+
+Imagen 2: train/ID353997899.jpg
+  Dry_Total_g real       : 53.2000 g/m²
+  Dry_Total_g predicción : 46.8010 g/m²
+  Error de biomasa (abs) : 6.3990 g/m²
+  Todos los parámetros predichos:
+    Dry_Clover_g        : 2.5511 g/m²
+    Dry_Dead_g          : 17.6015 g/m²
+    Dry_Green_g         : 26.6484 g/m²
+    Dry_Total_g         : 46.8010 g/m²
+    GDM_g               : 29.1995 g/m²
+
+Imagen 3: train/ID670276799.jpg
+  Dry_Total_g real       : 45.1000 g/m²
+  Dry_Total_g predicción : 51.5705 g/m²
+  Error de biomasa (abs) : 6.4705 g/m²
+  Todos los parámetros predichos:
+    Dry_Clover_g        : 6.8597 g/m²
+    Dry_Dead_g          : 16.4378 g/m²
+    Dry_Green_g         : 28.2729 g/m²
+    Dry_Total_g         : 51.5705 g/m²
+    GDM_g               : 35.1326 g/m²
+
+Imagen 4: train/ID1948354837.jpg
+  Dry_Total_g real       : 33.5000 g/m²
+  Dry_Total_g predicción : 36.1523 g/m²
+  Error de biomasa (abs) : 2.6523 g/m²
+  Todos los parámetros predichos:
+    Dry_Clover_g        : 7.2683 g/m²
+    Dry_Dead_g          : 10.5090 g/m²
+    Dry_Green_g         : 18.3750 g/m²
+    Dry_Total_g         : 36.1523 g/m²
+    GDM_g               : 25.6433 g/m²
+
+Imagen 5: train/ID1675365449.jpg
+  Dry_Total_g real       : 103.4600 g/m²
+  Dry_Total_g predicción : 75.3210 g/m²
+  Error de biomasa (abs) : 28.1390 g/m²
+  Todos los parámetros predichos:
+    Dry_Clover_g        : 6.8489 g/m²
+    Dry_Dead_g          : 13.8067 g/m²
+    Dry_Green_g         : 54.6653 g/m²
+    Dry_Total_g         : 75.3210 g/m²
+    GDM_g               : 61.5142 g/m²
+
+--------------------------------------------------------------
+Error medio de biomasa (5 imágenes): 13.0098 g/m²
+==============================================================
