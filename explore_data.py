@@ -65,7 +65,8 @@ ax.set_axisbelow(True)
 plt.tight_layout()
 
 # ── Save ───────────────────────────────────────────────────────────────────
-OUT_PATH = os.path.join(BASE_PATH, "species_distribution.png")
-plt.savefig(OUT_PATH, dpi=150, bbox_inches="tight")
+# ── Save ───────────────────────────────────────────────────────────────────
+OUT_PATH = os.path.join(BASE_PATH, "species_distribution.pdf")
+plt.savefig(OUT_PATH, format="pdf", bbox_inches="tight")
 print(f"Saved → {OUT_PATH}")
 plt.show()

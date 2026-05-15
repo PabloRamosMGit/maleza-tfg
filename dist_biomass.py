@@ -25,24 +25,24 @@ kde_lin = gaussian_kde(v_clip, bw_method=0.18)
 y_lin   = kde_lin(x_lin)
 norm_y  = y_lin / y_lin.max()
 
-# ── Colores ────────────────────────────────────────────────────────────────
-BG    = "#0f0f1a"
-PANEL = "#161628"
+# ── Colores (tema claro) ───────────────────────────────────────────────────
+BG    = "#ffffff"
+PANEL = "#f7f7fb"
 C1    = "#e07b54"
-CMED  = "#f5c842"
-CMEAN = "#e05454"
-WHITE = "#e8e8f0"
-MUTED = "#6a6a8a"
+CMED  = "#c8a000"
+CMEAN = "#cc2222"
+DARK  = "#1a1a2e"
+MUTED = "#555577"
 
 # ── Figura ─────────────────────────────────────────────────────────────────
 fig, ax = plt.subplots(figsize=(11, 6), facecolor=BG)
 ax.set_facecolor(PANEL)
 for sp in ax.spines.values():
-    sp.set_color("#2a2a45")
+    sp.set_color("#ccccdd")
 
 # Histograma
 ax.hist(v_clip, bins=70, density=True,
-        color="#2a2a45", edgecolor="#1a1a30", linewidth=0.3, zorder=1)
+        color="#dcdcec", edgecolor="#c0c0d8", linewidth=0.3, zorder=1)
 
 # KDE con relleno degradado
 for i in range(len(x_lin) - 1):
@@ -63,23 +63,22 @@ for val, col, lbl in [(q2, CMED, f"Mediana\n{q2:.1f} g"), (mean_v, CMEAN, f"Medi
 
 # Leyenda
 ax.legend(loc="upper right", fontsize=8,
-          facecolor="#1e1e35", edgecolor="#2a2a45",
-          labelcolor=WHITE, framealpha=0.9)
+          facecolor="#efeffa", edgecolor="#ccccdd",
+          labelcolor=DARK, framealpha=0.9)
 
 # Etiquetas y título
 ax.set_title("Distribución de Biomasa Seca Total",
-             color=WHITE, fontsize=13, fontweight="bold", pad=14,
+             color=DARK, fontsize=13, fontweight="bold", pad=14,
              fontfamily="monospace")
 ax.set_xlabel("Peso seco total (g)", color=MUTED, fontsize=9, labelpad=8)
 ax.set_ylabel("Densidad",            color=MUTED, fontsize=9, labelpad=8)
 ax.tick_params(colors=MUTED, labelsize=8)
 ax.set_xlim(0, clip)
 
-
 plt.tight_layout()
 
-# ── Guardar ────────────────────────────────────────────────────────────────
-OUT = os.path.join(BASE_PATH, "biomass_distribution.png")
-plt.savefig(OUT, dpi=180, bbox_inches="tight", facecolor=BG)
+# ── Guardar como PDF ───────────────────────────────────────────────────────
+OUT = os.path.join(BASE_PATH, "biomass_distribution.pdf")
+plt.savefig(OUT, format="pdf", bbox_inches="tight", facecolor=BG)
 print(f"Guardado → {OUT}")
 plt.show()
