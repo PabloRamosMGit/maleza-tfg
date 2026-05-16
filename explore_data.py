@@ -51,7 +51,7 @@ for bar, val in zip(bars, species_counts.values):
 
 # ── Styling ────────────────────────────────────────────────────────────────
 ax.set_xlabel("Count", fontsize=10, labelpad=8, color="#444444")
-ax.set_title("Distriución de especies", fontsize=13, fontweight="bold",
+ax.set_title("Distribución de especies", fontsize=13, fontweight="bold",
              pad=14, color="#222222")
 
 ax.set_xlim(0, species_counts.max() * 1.12)
